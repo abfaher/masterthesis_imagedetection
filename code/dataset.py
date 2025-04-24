@@ -3,18 +3,20 @@ from torch.utils.data import Dataset
 import torch
 from torch import Tensor
 from PIL import Image
-import torchvision.transforms as transforms
-import numpy
 import xml.etree.ElementTree as ET  # Importing XML parser
-import torchvision.transforms as transforms
  
  
 from typing import Tuple, Optional, List
+from utils import convert_to_boxes
  
  
 class LLVIPDataset(Dataset):
-    def __init__(self, dir_all_images:str, train:bool=True, num_images: Optional[int]=None, data_for_SSL:bool=False):
+    def __init__(self, dir_all_images: str, train: bool = True, S=7, B=2, C=20, transform=None, num_images: Optional[int] = None):
         self.train = train
+        self.transform = transform
+        self.S = S
+        self.B = B
+        self.C = C
  
         if self.train:
             # The directories where the training images (.jpg) are stored
@@ -27,8 +29,6 @@ class LLVIPDataset(Dataset):
  
         self.dir_annotations = dir_all_images + '/Annotations' # This directory contains xml files with the annotations
  
-        self.data_for_SSL = data_for_SSL # If True, the dataset is used for self-supervised learning (unsupervised data without labels) and we take the data from the end of directory to avoid using the same data for training and SSL
-
         # check if the number of infrared and visible images are the same
         def count_jpg_files(dir:str)->int:
             return len([f for f in os.listdir(dir) if f.endswith('.jpg')])
@@ -47,9 +47,9 @@ class LLVIPDataset(Dataset):
         # filter the filnames to keep only the .jpg files
         self.infrared_images = [f for f in list_dir_infrared if f.endswith('.jpg')][:self.num_images]
         self.visible_images = [f for f in list_dir_visible if f.endswith('.jpg')][:self.num_images]
+        self.annotations = [fname.replace('.jpg','.xml') for fname in self.visible_images]
         assert self.infrared_images == self.visible_images, 'Different names of infrared and visible images'
 
-        self.transform = transforms.ToTensor()
  
         # Class-to-index mapping
         self.class_to_idx = {}
@@ -58,25 +58,44 @@ class LLVIPDataset(Dataset):
 
     def __getitem__(self, index:int) -> Tuple[Tensor, Tensor, Optional[Tensor], Optional[Tensor]]:
         # loads the images
-        visible, infrared = self.load_image(index)
-        boxes, labels = self.get_annotations(index)
+        visible, _ = self.load_image(index)
 
         # Transform the images to tensors
-        infrared = self.transform(infrared)
         visible = self.transform(visible)
 
-        # Convert boxes and labels to tensors
-        boxes = torch.tensor(boxes, dtype=torch.int64)
-        labels = torch.tensor(labels, dtype=torch.int64)
+        boxes, labels = self.get_annotations(index)
 
-        image = visible # we only use the visible image for now
-        target = {}
-        target["boxes"] = boxes
-        target["labels"] = labels
+        # Initialize the label matrix
+        label_matrix = torch.zeros((self.S, self.S, self.C + 5 * self.B))
 
-        res = (image, target)
+        for box, label in zip(boxes, labels):
+            xmin, ymin, xmax, ymax = box
 
-        return res
+            # Convert to center coordinates and normalize
+            x_center = ((xmin + xmax) / 2) / 448
+            y_center = ((ymin + ymax) / 2) / 448
+            width = (xmax - xmin) / 448
+            height = (ymax - ymin) / 448
+
+            # Determine grid cell
+            i = int(self.S * y_center)
+            j = int(self.S * x_center)
+
+            x_cell = self.S * x_center - j
+            y_cell = self.S * y_center - i
+            width_cell, height_cell = (
+                width * self.S,
+                height * self.S,
+            )
+
+            # Assign values to the label matrix
+            if label_matrix[i, j, self.C] == 0:
+                label_matrix[i, j, self.C] = 1  # objectness score
+                box_coordinates = torch.tensor([x_cell, y_cell, width_cell, height_cell])
+                label_matrix[i, j, self.C + 1:self.C + 5] = box_coordinates
+                label_matrix[i, j, label] = 1  # one-hot encoding for class
+
+        return visible, label_matrix
 
 
     def __len__(self) -> int:
@@ -144,7 +163,7 @@ class LLVIPDataset(Dataset):
         pass
 
     def build_class_mapping(self) -> None:
-        # compute the integer class IDs from the class names becuase machine learning models don't work with strings
+        # compute the integer class IDs from the class names because machine learning models don't work with strings
 
         class_names = []
         for annotation in os.listdir(self.dir_annotations):
