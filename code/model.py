@@ -2,22 +2,36 @@ import torch
 import torch.nn as nn
 
 class SimpleYOLO(nn.Module):
-    def __init__(self, S=7, B=2, C=1):
+    def __init__(self, split_size=7, num_boxes=2, num_classes=1):
         super(SimpleYOLO, self).__init__()
-        self.S = S
-        self.B = B
-        self.C = C
-        self.output_dim = B * 5 + C  # (x, y, w, h, confidence) * B + classes
+        self.S = split_size
+        self.B = num_boxes
+        self.C = num_classes
 
-        self.conv = nn.Conv2d(
-            in_channels=3,  # Assuming RGB input; adjust if using different modalities
-            out_channels=self.output_dim,
-            kernel_size=1,
-            stride=1,
-            padding=0
+        # Simple CNN with 3 conv layers
+        self.conv_layers = nn.Sequential(
+            nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=1),
+            nn.LeakyReLU(0.1),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+
+            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1),
+            nn.LeakyReLU(0.1),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+
+            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1),
+            nn.LeakyReLU(0.1),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+        )
+
+        # Fully connected layers
+        self.fc_layers = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(64 * (448 // 8) * (448 // 8), 496),  # 448/8 = 56
+            nn.LeakyReLU(0.1),
+            nn.Linear(496, self.S * self.S * (self.C + self.B * 5)),
         )
 
     def forward(self, x):
-        out = self.conv(x)  # [batch_size, output_dim, S, S]
-        out = out.permute(0, 2, 3, 1)  # Reshape to [batch_size, S, S, output_dim]
-        return out
+        x = self.conv_layers(x)
+        x = self.fc_layers(x)
+        return x.view(-1, self.S, self.S, self.C + self.B * 5)

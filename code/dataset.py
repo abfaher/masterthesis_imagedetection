@@ -12,7 +12,7 @@ from utils import convert_to_boxes
  
  
 class LLVIPDataset(Dataset):
-    def __init__(self, dir_all_images: str, train: bool = True, S=7, B=2, C=20, num_images: Optional[int] = None):
+    def __init__(self, dir_all_images: str, train: bool = True, S=7, B=2, C=1, num_images: Optional[int] = None):
         self.train = train
         self.transform = transforms.Compose([
             transforms.Resize((448, 448)),
