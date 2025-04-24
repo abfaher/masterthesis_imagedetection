@@ -4,7 +4,6 @@ Main file for training Yolo model on LLVIP dataset.
 """
 
 import torch
-import torchvision.transforms as transforms
 import torch.optim as optim
 from tqdm import tqdm
 from torch.utils.data import DataLoader

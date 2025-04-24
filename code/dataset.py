@@ -1,6 +1,7 @@
 import os
 from torch.utils.data import Dataset
 import torch
+import torchvision.transforms as transforms
 from torch import Tensor
 from PIL import Image
 import xml.etree.ElementTree as ET  # Importing XML parser
@@ -11,9 +12,12 @@ from utils import convert_to_boxes
  
  
 class LLVIPDataset(Dataset):
-    def __init__(self, dir_all_images: str, train: bool = True, S=7, B=2, C=20, transform=None, num_images: Optional[int] = None):
+    def __init__(self, dir_all_images: str, train: bool = True, S=7, B=2, C=20, num_images: Optional[int] = None):
         self.train = train
-        self.transform = transform
+        self.transform = transforms.Compose([
+            transforms.Resize((448, 448)),
+            transforms.ToTensor(),
+        ])
         self.S = S
         self.B = B
         self.C = C
@@ -78,11 +82,14 @@ class LLVIPDataset(Dataset):
             height = (ymax - ymin) / 448
 
             # Determine grid cell
-            i = int(self.S * y_center)
-            j = int(self.S * x_center)
+            i = int(self.S * y_center) # column
+            j = int(self.S * x_center) # row
 
+            # Calculate relative position inside that cell
             x_cell = self.S * x_center - j
             y_cell = self.S * y_center - i
+
+            # Scale the width and height to the cell size
             width_cell, height_cell = (
                 width * self.S,
                 height * self.S,
