@@ -8,7 +8,6 @@ import xml.etree.ElementTree as ET  # Importing XML parser
  
  
 from typing import Tuple, Optional, List
-from utils import convert_to_boxes
  
  
 class LLVIPDataset(Dataset):
@@ -41,7 +40,7 @@ class LLVIPDataset(Dataset):
 
         # If num_images is not specified, use all images in the directories
         if num_images is None:
-            num_images = count_jpg_files(self.dir_infrared)
+            num_images = count_jpg_files(self.dir_visible)
         self.num_images = num_images
 
         # get the names of the num_images first images from the directories
@@ -82,8 +81,8 @@ class LLVIPDataset(Dataset):
             height = (ymax - ymin) / 448
 
             # Determine grid cell
-            i = int(self.S * y_center) # column
-            j = int(self.S * x_center) # row
+            i = min(self.S - 1, int(self.S * y_center))  # row
+            j = min(self.S - 1, int(self.S * x_center))  # column
 
             # Calculate relative position inside that cell
             x_cell = self.S * x_center - j
@@ -175,6 +174,11 @@ class LLVIPDataset(Dataset):
         class_names = []
         for annotation in os.listdir(self.dir_annotations):
             xml_file = os.path.join(self.dir_annotations, annotation)
+
+            # ignore .DS_Store and other junk files
+            if not xml_file.endswith('.xml'):
+                continue
+
             tree = ET.parse(xml_file)
             root = tree.getroot()
             for obj in root.findall('object'):

@@ -26,7 +26,7 @@ torch.manual_seed(seed)
 
 # Hyperparameters etc. 
 LEARNING_RATE = 2e-5
-DEVICE = "cuda" if torch.cuda.is_available else "cpu"
+DEVICE = "cpu"
 BATCH_SIZE = 16 # 64 in original paper but I don't have that much vram, grad accum?
 WEIGHT_DECAY = 0
 EPOCHS = 1000
@@ -34,7 +34,7 @@ NUM_WORKERS = 2
 PIN_MEMORY = True
 LOAD_MODEL = False
 LOAD_MODEL_FILE = "overfit.pth.tar"
-IMG_DIR = "dataset/LLVIP_small"
+IMG_DIR = "../dataset/LLVIP_small"
 # LABEL_DIR = "dataset/LLVIP_small/Annotations"
 
 
@@ -47,6 +47,7 @@ def train_fn(train_loader, model, optimizer, loss_fn):
         out = model(x)
         loss = loss_fn(out, y)
         mean_loss.append(loss.item())
+        print("length of mean_loss list =", len(mean_loss))
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -68,9 +69,9 @@ def main():
     if LOAD_MODEL:
         load_checkpoint(torch.load(LOAD_MODEL_FILE), model, optimizer)
 
-    train_dataset = LLVIPDataset(img_dir=IMG_DIR)
+    train_dataset = LLVIPDataset(dir_all_images=IMG_DIR)
 
-    test_dataset = LLVIPDataset(img_dir=IMG_DIR, train=False)
+    test_dataset = LLVIPDataset(dir_all_images=IMG_DIR, train=False)
 
     train_loader = DataLoader(
         dataset=train_dataset,
@@ -78,7 +79,7 @@ def main():
         num_workers=NUM_WORKERS,
         pin_memory=PIN_MEMORY,
         shuffle=True,
-        drop_last=True,
+        drop_last=False,
     )
 
     test_loader = DataLoader(
@@ -102,7 +103,7 @@ def main():
         #    sys.exit()
 
         pred_boxes, target_boxes = get_bboxes(
-            train_loader, model, iou_threshold=0.5, threshold=0.4
+            train_loader, model, iou_threshold=0.5, threshold=0.4, device="cpu"
         )
 
         mean_avg_prec = mean_average_precision(
@@ -118,6 +119,9 @@ def main():
         #    save_checkpoint(checkpoint, filename=LOAD_MODEL_FILE)
         #    import time
         #    time.sleep(10)
+
+        print(f"Number of batches in train_loader: {len(train_loader)}")
+        print(f"Dataset size: {len(train_loader.dataset)}")
 
         train_fn(train_loader, model, optimizer, loss_fn)
 
