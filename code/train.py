@@ -142,7 +142,7 @@ def main():
         bboxes_batch = cellboxes_to_boxes(preds)
 
         for idx in range(x.shape[0]):
-            bboxes = non_max_suppression(bboxes_batch[idx], iou_threshold=0.5, threshold=0.4, box_format="midpoint")
+            bboxes = non_max_suppression(bboxes_batch[idx], iou_threshold=0.5, threshold=0.3, box_format="midpoint")
             
             base_filename = os.path.splitext(filenames[idx])[0]  # removes ".jpg"
             save_path = os.path.join(RESULTS_DIR, f"{base_filename}_prediction.png")
