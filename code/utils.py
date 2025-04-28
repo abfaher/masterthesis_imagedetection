@@ -212,15 +212,15 @@ def plot_image(image, boxes, save_path=None):
     img_size = image.shape[1:]  # (H, W)
 
     for box in boxes:
-        class_pred = box[0]
-        prob_score = box[1]
+        _ = box[0]  # class prediction
+        _ = box[1]  # probability score
         x, y, w, h = box[2:]
 
         x = x * img_size[1]  # rescale x to original width
         y = y * img_size[0]  # rescale y to original height
         w = w * img_size[1]
         h = h * img_size[0]
-        
+
         top_left_x = x - w / 2
         top_left_y = y - h / 2
         rect = patches.Rectangle(
@@ -236,7 +236,7 @@ def plot_image(image, boxes, save_path=None):
     ax.axis("off")
 
     if save_path:
-        plt.savefig(save_path, bbox_inches='tight')
+        plt.savefig(save_path)
         plt.close(fig)
     else:
         plt.show()

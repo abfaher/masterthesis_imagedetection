@@ -151,7 +151,7 @@ class LLVIPDataset(Dataset):
             boxes.append([xmin, ymin, xmax, ymax])
  
         labels = [label + 1 for label in labels] # Add one because the background class is 0
- 
+
         return boxes, labels
 
 
