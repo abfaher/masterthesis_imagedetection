@@ -32,7 +32,7 @@ LEARNING_RATE = 2e-5
 DEVICE = "cpu"
 BATCH_SIZE = 16 # 64 in original paper..
 WEIGHT_DECAY = 0
-EPOCHS = 50 # will change it to 1000 when i have a bigger model
+EPOCHS = 100 # will change it to 1000 when i have a bigger model
 NUM_WORKERS = 2
 PIN_MEMORY = True
 IMG_DIR = "../dataset/LLVIP_small"
@@ -107,7 +107,7 @@ def main():
         drop_last=False,
     )
 
-    for epoch in range(EPOCHS):
+    for epoch in range(1, EPOCHS+1):
 
         pred_boxes, target_boxes = get_bboxes(
             train_loader, model, iou_threshold=0.5, threshold=0.4, device="cpu"
