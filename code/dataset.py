@@ -59,9 +59,10 @@ class LLVIPDataset(Dataset):
         self.build_class_mapping()
 
 
-    def __getitem__(self, index:int) -> Tuple[Tensor, Tensor, Optional[Tensor], Optional[Tensor]]:
+    def __getitem__(self, index:int) -> Tuple[torch.Tensor, torch.Tensor, str]:
         # loads the images
         visible, _ = self.load_image(index)
+        filename = self.visible_images[index]
 
         # Transform the images to tensors
         visible = self.transform(visible)
@@ -101,7 +102,7 @@ class LLVIPDataset(Dataset):
                 label_matrix[i, j, self.C + 1:self.C + 5] = box_coordinates
                 label_matrix[i, j, label] = 1  # one-hot encoding for class
 
-        return visible, label_matrix
+        return visible, label_matrix, filename
 
 
     def __len__(self) -> int:

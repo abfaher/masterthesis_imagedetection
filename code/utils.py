@@ -197,43 +197,42 @@ def mean_average_precision(
         # torch.trapz for numerical integration
         average_precisions.append(torch.trapz(precisions, recalls))
     
-    if len(average_precisions) == 0:
-        return 0.0
+    # if len(average_precisions) == 0:
+    #     return 0.0
 
     return sum(average_precisions) / len(average_precisions)
 
 
-def plot_image(image, boxes):
-    """Plots predicted bounding boxes on the image"""
-    im = np.array(image)
-    height, width, _ = im.shape
+def plot_image(image, boxes, save_path=None):
 
-    # Create figure and axes
+    im = image.permute(1, 2, 0).cpu().numpy()
     fig, ax = plt.subplots(1)
-    # Display the image
     ax.imshow(im)
 
-    # box[0] is x midpoint, box[2] is width
-    # box[1] is y midpoint, box[3] is height
-
-    # Create a Rectangle potch
     for box in boxes:
-        box = box[2:]
-        assert len(box) == 4, "Got more values than in x, y, w, h, in a box!"
-        upper_left_x = box[0] - box[2] / 2
-        upper_left_y = box[1] - box[3] / 2
+        class_pred = box[0]
+        prob_score = box[1]
+        x, y, w, h = box[2:]
+        top_left_x = x - w / 2
+        top_left_y = y - h / 2
         rect = patches.Rectangle(
-            (upper_left_x * width, upper_left_y * height),
-            box[2] * width,
-            box[3] * height,
-            linewidth=1,
-            edgecolor="r",
+            (top_left_x, top_left_y),
+            w,
+            h,
+            linewidth=2,
+            edgecolor="red",
             facecolor="none",
         )
-        # Add the patch to the Axes
         ax.add_patch(rect)
 
-    plt.show()
+    ax.axis("off")
+
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight')
+        plt.close(fig)
+    else:
+        plt.show()
+
 
 def get_bboxes(
     loader,
@@ -242,7 +241,7 @@ def get_bboxes(
     threshold,
     pred_format="cells",
     box_format="midpoint",
-    device="cuda",
+    device="cpu",
 ):
     all_pred_boxes = []
     all_true_boxes = []
@@ -251,7 +250,7 @@ def get_bboxes(
     model.eval()
     train_idx = 0
 
-    for batch_idx, (x, labels) in enumerate(loader):
+    for batch_idx, (x, labels, _) in enumerate(loader):
         x = x.to(device)
         labels = labels.to(device)
 
@@ -359,3 +358,13 @@ def load_checkpoint(checkpoint, model, optimizer):
     print("=> Loading checkpoint")
     model.load_state_dict(checkpoint["state_dict"])
     optimizer.load_state_dict(checkpoint["optimizer"])
+
+
+def plot_loss(losses, EPOCHS):
+    plt.plot(range(1, EPOCHS+1), losses, marker='o')
+    plt.title('Training Loss over Epochs')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.grid()
+    plt.savefig("../saved/loss.png")
+    plt.show()
