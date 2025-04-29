@@ -76,10 +76,10 @@ class LLVIPDataset(Dataset):
             xmin, ymin, xmax, ymax = box
 
             # Convert to center coordinates and normalize
-            x_center = ((xmin + xmax) / 2) / 448
-            y_center = ((ymin + ymax) / 2) / 448
-            width = (xmax - xmin) / 448
-            height = (ymax - ymin) / 448
+            x_center = (xmin + xmax) / 2
+            y_center = (ymin + ymax) / 2
+            width = xmax - xmin
+            height = ymax - ymin
 
             # Determine grid cell
             i = min(self.S - 1, int(self.S * y_center))  # row
@@ -117,6 +117,10 @@ class LLVIPDataset(Dataset):
         boxes = []
         labels = []
 
+        # Original LLVIP image dimensions
+        orig_width = 1280
+        orig_height = 1024
+
         for obj in root.findall('object'):
  
             label = obj.find('name')
@@ -147,10 +151,14 @@ class LLVIPDataset(Dataset):
                 ymax = int(find_ymax.text) # type: ignore
             except (TypeError, ValueError):
                 continue
+
+            # Normalize bbox coordinates
+            xmin /= orig_width
+            xmax /= orig_width
+            ymin /= orig_height
+            ymax /= orig_height
  
             boxes.append([xmin, ymin, xmax, ymax])
- 
-        labels = [label + 1 for label in labels] # Add one because the background class is 0
 
         return boxes, labels
 

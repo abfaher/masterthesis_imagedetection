@@ -14,7 +14,6 @@ from dataset import LLVIPDataset
 from utils import (
     non_max_suppression,
     mean_average_precision,
-    intersection_over_union,
     cellboxes_to_boxes,
     get_bboxes,
     plot_image,
@@ -28,11 +27,11 @@ seed = 123
 torch.manual_seed(seed)
 
 # Hyperparameters etc. 
-LEARNING_RATE = 2e-5
+LEARNING_RATE = 1e-3  #2e-5 before
 DEVICE = "cpu"
 BATCH_SIZE = 16 # 64 in original paper..
-WEIGHT_DECAY = 0
-EPOCHS = 500 # will change it to 1000 when i have a bigger model
+WEIGHT_DECAY = 5e-4
+EPOCHS = 600 # will change it to 1000 when i have a bigger model
 NUM_WORKERS = 2
 PIN_MEMORY = True
 IMG_DIR = "../dataset/LLVIP_small"
@@ -50,7 +49,6 @@ def train_fn(train_loader, model, optimizer, loss_fn):
         out = model(x)
         loss = loss_fn(out, y)
         mean_loss.append(loss.item())
-        # print("length of mean_loss list =", len(mean_loss))
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -78,6 +76,11 @@ def main():
     model = SimpleYOLO(split_size=7, num_boxes=2, num_classes=1).to(DEVICE)
     optimizer = optim.Adam(
         model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY
+    )
+    scheduler = optim.lr_scheduler.MultiStepLR(
+        optimizer,
+        milestones=[75, 105],  # à 75 et 105 epochs, on baisse le LR
+        gamma=0.1
     )
     loss_fn = SimpleYoloLoss()
 
@@ -127,6 +130,8 @@ def main():
             print(f"Saved model at epoch {epoch}")
 
         losses.append(train_fn(train_loader, model, optimizer, loss_fn))
+
+        scheduler.step()
     
     # plot the loss
     plot_loss(losses, EPOCHS)
