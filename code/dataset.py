@@ -22,21 +22,14 @@ class LLVIPDataset(Dataset):
         self.C = C
  
         if self.train:
-            # The directories where the training images (.jpg) are stored
-            self.dir_infrared = dir_all_images + '/infrared/train'
             self.dir_visible = dir_all_images + '/visible/train'
         else:
-            # The directories where the test images (.jpg) are stored
-            self.dir_infrared = dir_all_images + '/infrared/test'
             self.dir_visible = dir_all_images + '/visible/test'
  
         self.dir_annotations = dir_all_images + '/Annotations' # This directory contains xml files with the annotations
  
-        # check if the number of infrared and visible images are the same
         def count_jpg_files(dir:str)->int:
             return len([f for f in os.listdir(dir) if f.endswith('.jpg')])
-        assert count_jpg_files(self.dir_infrared) > 0, f'No .jpg files in {self.dir_infrared}'
-        assert count_jpg_files(self.dir_infrared) == count_jpg_files(self.dir_visible), 'Different number of infrared and visible images'
 
         # If num_images is not specified, use all images in the directories
         if num_images is None:
@@ -44,14 +37,11 @@ class LLVIPDataset(Dataset):
         self.num_images = num_images
 
         # get the names of the num_images first images from the directories
-        list_dir_infrared = os.listdir(self.dir_infrared)
         list_dir_visible = os.listdir(self.dir_visible)
 
         # filter the filnames to keep only the .jpg files
-        self.infrared_images = [f for f in list_dir_infrared if f.endswith('.jpg')][:self.num_images]
         self.visible_images = [f for f in list_dir_visible if f.endswith('.jpg')][:self.num_images]
         self.annotations = [fname.replace('.jpg','.xml') for fname in self.visible_images]
-        assert self.infrared_images == self.visible_images, 'Different names of infrared and visible images'
 
  
         # Class-to-index mapping
@@ -61,49 +51,52 @@ class LLVIPDataset(Dataset):
 
     def __getitem__(self, index:int) -> Tuple[torch.Tensor, torch.Tensor, str]:
         # loads the images
-        visible, _ = self.load_image(index)
+        visible = self.load_image(index)
         filename = self.visible_images[index]
 
         # Transform the images to tensors
         visible = self.transform(visible)
 
-        boxes, labels = self.get_annotations(index)
-
         # Initialize the label matrix
         label_matrix = torch.zeros((self.S, self.S, self.C + 5 * self.B))
+        
+        if self.train:
+            boxes, labels = self.get_annotations(index)
 
-        for box, label in zip(boxes, labels):
-            xmin, ymin, xmax, ymax = box
+            for box, label in zip(boxes, labels):
+                xmin, ymin, xmax, ymax = box
 
-            # Convert to center coordinates and normalize
-            x_center = (xmin + xmax) / 2
-            y_center = (ymin + ymax) / 2
-            width = xmax - xmin
-            height = ymax - ymin
+                # Convert to center coordinates and normalize
+                x_center = (xmin + xmax) / 2
+                y_center = (ymin + ymax) / 2
+                width = xmax - xmin
+                height = ymax - ymin
 
-            # Determine grid cell
-            i = min(self.S - 1, int(self.S * y_center))  # row
-            j = min(self.S - 1, int(self.S * x_center))  # column
+                # Determine grid cell
+                i = min(self.S - 1, int(self.S * y_center))  # row
+                j = min(self.S - 1, int(self.S * x_center))  # column
 
-            # Calculate relative position inside that cell
-            x_cell = self.S * x_center - j
-            y_cell = self.S * y_center - i
+                # Calculate relative position inside that cell
+                x_cell = self.S * x_center - j
+                y_cell = self.S * y_center - i
 
-            # Scale the width and height to the cell size
-            width_cell, height_cell = (
-                width * self.S,
-                height * self.S,
-            )
+                # Scale the width and height to the cell size
+                width_cell, height_cell = (
+                    width * self.S,
+                    height * self.S,
+                )
 
-            # Assign values to the label matrix
-            if label_matrix[i, j, self.C] == 0:
-                label_matrix[i, j, self.C] = 1  # objectness score
-                box_coordinates = torch.tensor([x_cell, y_cell, width_cell, height_cell])
-                label_matrix[i, j, self.C + 1:self.C + 5] = box_coordinates
-                label_matrix[i, j, label] = 1  # one-hot encoding for class
+                # Assign values to the label matrix
+                if label_matrix[i, j, self.C] == 0:
+                    label_matrix[i, j, self.C] = 1  # objectness score
+                    box_coordinates = torch.tensor([x_cell, y_cell, width_cell, height_cell])
+                    label_matrix[i, j, self.C + 1:self.C + 5] = box_coordinates
+                    label_matrix[i, j, label] = 1  # one-hot encoding for class
 
-        return visible, label_matrix, filename
-
+            return visible, label_matrix, filename
+        else:
+            # For test set, return only the image and filename (No annotations for test)
+            return visible, label_matrix, filename
 
     def __len__(self) -> int:
         return self.num_images
@@ -166,13 +159,11 @@ class LLVIPDataset(Dataset):
     # UTILS FUNCTIONS
 
     def load_image(self, index:int) -> Image.Image:
-        infrared_image_path = os.path.join(self.dir_infrared, self.infrared_images[index])
         visible_image_path = os.path.join(self.dir_visible, self.visible_images[index])
 
-        infrared = Image.open(infrared_image_path).convert('L')  # Convert to grayscale (but we won't use it for now)
         visible = Image.open(visible_image_path)
 
-        return visible, infrared
+        return visible
 
     def show_image(self, index:int) -> Image.Image:
         pass
