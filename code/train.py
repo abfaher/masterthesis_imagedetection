@@ -15,7 +15,7 @@ from loss import SimpleYoloLoss
 from utils import (
     mean_average_precision,
     get_bboxes,
-    plot_loss,
+    plot_train_val_loss,
     save_checkpoint,
     load_checkpoint,
 )
@@ -60,20 +60,21 @@ def train_fn(train_loader, model, optimizer, loss_fn):
 
 def compute_val_loss(model, val_loader, loss_fn, device="cpu"):
     model.eval()
-    val_losses = []
+    val_mean_losses = []
     with torch.no_grad():
         for val_x, val_y, _ in val_loader:
             val_x, val_y = val_x.to(device), val_y.to(device)
             val_out = model(val_x)
             val_loss = loss_fn(val_out, val_y)
-            val_losses.append(val_loss.item())
+            val_mean_losses.append(val_loss.item())
     model.train() # switch back to train mode
-    return sum(val_losses) / len(val_losses)
+    return sum(val_mean_losses) / len(val_mean_losses)
 
 
 
 def main():
     losses = []
+    val_losses = []
     LOAD_MODEL = False
     
     # Ask user if they want to load the saved model
@@ -142,6 +143,7 @@ def main():
 
         # Validation loss
         avg_val_loss = compute_val_loss(model, val_loader, loss_fn, device=DEVICE)
+        val_losses.append(avg_val_loss)
         print(f"Validation loss: {avg_val_loss:.4f}")
 
         # saving the best model
@@ -164,7 +166,7 @@ def main():
         scheduler.step()
     
     # plot the loss
-    plot_loss(losses, EPOCHS)
+    plot_train_val_loss(losses, val_losses)
 
 
 if __name__ == "__main__":

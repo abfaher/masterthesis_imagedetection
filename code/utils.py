@@ -368,11 +368,24 @@ def load_checkpoint(checkpoint, model, optimizer):
     optimizer.load_state_dict(checkpoint["optimizer"])
 
 
-def plot_loss(losses, EPOCHS):
-    plt.plot(range(1, EPOCHS+1), losses, marker='o')
-    plt.title('Training Loss over Epochs')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.grid()
-    plt.savefig("../saved/loss.png")
+def plot_train_val_loss(train_losses, val_losses, save_path="../saved/train_vs_val_loss.png"):
+    import matplotlib.pyplot as plt
+    plt.plot(train_losses, label="Training Loss")
+    plt.plot(val_losses, label="Validation Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title("Training & Validation Loss over Epochs")
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(save_path)
     plt.show()
+
+
+# def plot_loss(losses, EPOCHS):
+#     plt.plot(range(1, EPOCHS+1), losses, marker='o')
+#     plt.title('Training Loss over Epochs')
+#     plt.xlabel('Epoch')
+#     plt.ylabel('Loss')
+#     plt.grid()
+#     plt.savefig("../saved/loss.png")
+#     plt.show()
